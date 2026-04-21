@@ -1,0 +1,153 @@
+// Prisma schema for D&D DM Session Tracker
+// Models: User, Campaign, Note, Entity, NoteEntityMention
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────
+model User {
+  id           String     @id @default(uuid())
+  email        String     @unique
+  passwordHash String
+  isPremium    Boolean    @default(false)
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  campaigns Campaign[]
+}
+
+// ─── Campaign ────────────────────────────────────────────────
+model Campaign {
+  id          String   @id @default(uuid())
+  userId      String
+  name        String
+  description String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  notes    Note[]
+  entities Entity[]
+
+  @@index([userId])
+}
+
+// ─── Note ────────────────────────────────────────────────────
+model Note {
+  id          String    @id @default(uuid())
+  campaignId  String
+  title       String
+  content     String    @default("") // plain text
+  processedAt DateTime? // when last AI-processed
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  campaign       Campaign               @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mentions       NoteEntityMention[]
+  processResults SessionProcessResult[]
+  recaps         SessionRecap[]
+
+  @@index([campaignId])
+}
+
+// ─── Entity ──────────────────────────────────────────────────
+enum EntityType {
+  NPC
+  LOCATION
+  ITEM
+  QUEST
+  FACTION
+  KEY_EVENT
+}
+
+model Entity {
+  id         String     @id @default(uuid())
+  campaignId String
+  name       String
+  type       EntityType
+  summary    String     @default("")
+  content    String     @default("")
+  imageUrl   String?
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+
+  campaign Campaign            @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  mentions NoteEntityMention[]  // mentions OF this entity (in notes)
+  entityMentions EntityMention[] @relation("SourceEntity") // mentions this entity makes
+  mentionedIn    EntityMention[] @relation("TargetEntity") // mentions of this entity in other entities
+
+  @@index([campaignId])
+  @@index([campaignId, type])
+}
+
+// ─── NoteEntityMention ───────────────────────────────────────
+// Links a span of text in a Note to an Entity
+model NoteEntityMention {
+  id          String   @id @default(uuid())
+  noteId      String
+  entityId    String
+  startIndex  Int
+  endIndex    Int
+  displayText String
+  createdAt   DateTime @default(now())
+
+  note   Note   @relation(fields: [noteId], references: [id], onDelete: Cascade)
+  entity Entity @relation(fields: [entityId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+  @@index([entityId])
+}
+
+// ─── EntityMention ───────────────────────────────────────────
+// Links a span of text in an Entity's content to another Entity
+model EntityMention {
+  id             String   @id @default(uuid())
+  sourceEntityId String
+  targetEntityId String
+  startIndex     Int
+  endIndex       Int
+  displayText    String
+  createdAt      DateTime @default(now())
+
+  sourceEntity Entity @relation("SourceEntity", fields: [sourceEntityId], references: [id], onDelete: Cascade)
+  targetEntity Entity @relation("TargetEntity", fields: [targetEntityId], references: [id], onDelete: Cascade)
+
+  @@index([sourceEntityId])
+  @@index([targetEntityId])
+}
+
+// ─── SessionProcessResult ────────────────────────────────────
+// Stores AI-generated session analysis results
+model SessionProcessResult {
+  id                 String   @id @default(uuid())
+  noteId             String
+  summary            String
+  extractedEntitiesJson Json  // ExtractedEntity[]
+  questUpdatesJson   Json     // QuestUpdate[]
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
+
+// ─── SessionRecap ────────────────────────────────────────────
+// Stores AI-generated player-friendly session recaps
+model SessionRecap {
+  id        String   @id @default(uuid())
+  noteId    String
+  content   String   // the generated recap text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  note Note @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@index([noteId])
+}
