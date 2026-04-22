@@ -126,7 +126,7 @@ export default function EntitiesScreen() {
       {!filtered?.length && !isLoading ? (
         <View style={styles.empty}>
           <Text style={styles.emptyEmoji}>🐉</Text>
-          <Text style={styles.emptyText}>No entities yet</Text>
+          <Text style={styles.emptyText}>No lore yet</Text>
           <Text style={styles.emptySubtext}>
             Tap + to add NPCs, locations, items, or quests
           </Text>
@@ -144,7 +144,10 @@ export default function EntitiesScreen() {
 
       <TouchableOpacity
         style={styles.fab}
-        onPress={() => router.push("/entity/new")}
+        onPress={() => {
+          const params = filter !== "ALL" ? `?type=${filter}` : "";
+          router.push(`/entity/new${params}`);
+        }}
       >
         <FontAwesome5 name="plus" size={20} color="#FFFFFF" />
       </TouchableOpacity>

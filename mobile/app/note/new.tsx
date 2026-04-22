@@ -12,7 +12,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, Stack } from "expo-router";
 import { useAuthStore } from "@/stores/authStore";
 import { useCreateNote } from "@/hooks/useNotes";
 import { useEntities } from "@/hooks/useEntities";
@@ -55,6 +55,14 @@ export default function NewNoteScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "New Note",
+          headerStyle: { backgroundColor: "#0F172A" },
+          headerTintColor: "#F9FAFB",
+        }}
+      />
       <ScrollView
         contentContainerStyle={styles.inner}
         keyboardShouldPersistTaps="always"

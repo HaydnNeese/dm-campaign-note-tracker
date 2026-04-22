@@ -13,7 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter, Stack } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { useAuthStore } from "@/stores/authStore";
 import { useEntities, useUpdateEntity } from "@/hooks/useEntities";
@@ -114,6 +114,14 @@ export default function EditEntityScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: `Edit ${entity?.name || "Lore"}`,
+          headerStyle: { backgroundColor: "#0F172A" },
+          headerTintColor: "#F9FAFB",
+        }}
+      />
       <ScrollView contentContainerStyle={styles.inner}>
         {/* Image + Type row */}
         <View style={styles.topRow}>
@@ -157,7 +165,7 @@ export default function EditEntityScreen() {
           style={styles.input}
           value={name}
           onChangeText={setName}
-          placeholder="Entity name"
+          placeholder="Lore name"
           placeholderTextColor="#6B7280"
         />
 

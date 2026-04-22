@@ -11,15 +11,17 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { useRouter, useLocalSearchParams, Stack } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { useAuthStore } from "@/stores/authStore";
-import { useCreateEntity } from "@/hooks/useEntities";
+import { useEntities, useCreateEntity } from "@/hooks/useEntities";
 import { useNotes, useUpdateNote } from "@/hooks/useNotes";
 import { uploadImage } from "@/services/uploads";
 import EntityImagePicker from "@/components/EntityImagePicker";
 import { API_BASE_URL } from "@/constants/Config";
+import * as loreAi from "@/services/loreAi";
 import type { EntityType } from "@/types";
 
 const ENTITY_TYPES: { value: EntityType; label: string; icon: string; color: string }[] = [
@@ -29,13 +31,41 @@ const ENTITY_TYPES: { value: EntityType; label: string; icon: string; color: str
   { value: "QUEST", label: "Quest", icon: "exclamation-circle", color: "#EF4444" },
 ];
 
+const SUMMARY_PLACEHOLDERS: Record<EntityType, string> = {
+  NPC: "Race, gender, personality, appearance...",
+  LOCATION: "Climate, region, landmarks, atmosphere...",
+  ITEM: "Type of item, theme (evil, holy, quirky), powers...",
+  QUEST: "Type (fetch, kill, recover), danger level, rewards...",
+  FACTION: "Ideology, power level, members, goals...",
+  KEY_EVENT: "Historical impact, participants, outcome...",
+};
+
+const NAME_PLACEHOLDERS: Record<EntityType, string> = {
+  NPC: "e.g. Gundren Rockseeker",
+  LOCATION: "e.g. Phandalin, Cragmaw Hideout",
+  ITEM: "e.g. Spider Staff, Gauntlets of Ogre Power",
+  QUEST: "e.g. Find the Lost Mine, Rescue Sildar Hallwinter",
+  FACTION: "e.g. The Lords' Alliance, The Zhentarim",
+  KEY_EVENT: "e.g. The Cataclysm, The Battle of Neverwinter",
+};
+
+const DETAILS_PLACEHOLDERS: Record<EntityType, string> = {
+  NPC: "Full description, backstory, stats, and role in the story...",
+  LOCATION: "Layout, inhabitants, history, and key features of this place...",
+  ITEM: "Magic properties, weight, value, and legendary history...",
+  QUEST: "Objectives, requirements, obstacles, and potential outcomes...",
+  FACTION: "Hierarchical structure, significant members, and secret agendas...",
+  KEY_EVENT: "Chronological timeline, key figures involved, and long-term consequences...",
+};
+
 export default function NewEntityScreen() {
   const router = useRouter();
-  const { name: initialName, type: initialType, sourceNoteId, sourceText } = useLocalSearchParams<{name?: string, type?: string, sourceNoteId?: string, sourceText?: string}>();
+  const { name: initialName, type: initialType, sourceNoteId, sourceText } = useLocalSearchParams<{ name?: string, type?: string, sourceNoteId?: string, sourceText?: string }>();
 
   const activeCampaign = useAuthStore((s) => s.activeCampaign);
   const createMutation = useCreateEntity(activeCampaign?.id || "");
-  
+
+  const { data: allEntities } = useEntities(activeCampaign?.id || "");
   const { data: notes } = useNotes(activeCampaign?.id || "");
   const updateNoteMutation = useUpdateNote(activeCampaign?.id || "");
 
@@ -44,7 +74,58 @@ export default function NewEntityScreen() {
   const [summary, setSummary] = useState("");
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
+  const [showConceptHelp, setShowConceptHelp] = useState(false);
+
+  // AI states
+  const [isGeneratingName, setIsGeneratingName] = useState(false);
+  const [isGeneratingDetails, setIsGeneratingDetails] = useState(false);
+  const [isOptimizingDetails, setIsOptimizingDetails] = useState(false);
+
+  const handleGenerateName = async () => {
+    setIsGeneratingName(true);
+    try {
+      const newName = await loreAi.generateName(type, summary);
+      setName(newName);
+    } catch (err: any) {
+      Alert.alert("AI Unavailable", "Please wait, the AI servers are busy right now. Try again in a moment.");
+    } finally {
+      setIsGeneratingName(false);
+    }
+  };
+
+  const handleGenerateDetails = async () => {
+    if (!name.trim() && !summary.trim()) {
+      Alert.alert("Context Needed", "Provide at least a name or a summary so the AI knows what to write about.");
+      return;
+    }
+    setIsGeneratingDetails(true);
+    try {
+      const details = await loreAi.generateDetails(name, type, summary, selectedEntityIds);
+      setContent(details);
+    } catch (err: any) {
+      Alert.alert("AI Unavailable", "Please wait, the AI servers are busy right now. Try again in a moment.");
+    } finally {
+      setIsGeneratingDetails(false);
+    }
+  };
+
+  const handleOptimizeDetails = async () => {
+    if (!content.trim()) {
+      Alert.alert("No Content", "Write something first for the AI to optimize.");
+      return;
+    }
+    setIsOptimizingDetails(true);
+    try {
+      const optimized = await loreAi.optimizeDetails(content);
+      setContent(optimized);
+    } catch (err: any) {
+      Alert.alert("AI Unavailable", "Please wait, the AI servers are busy right now. Try again in a moment.");
+    } finally {
+      setIsOptimizingDetails(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!name.trim()) {
@@ -78,13 +159,13 @@ export default function NewEntityScreen() {
           const lowerContent = note.content.toLowerCase();
           const lowerText = sourceText.toLowerCase();
           const startIndex = lowerContent.indexOf(lowerText);
-          
+
           if (startIndex !== -1) {
             const endIndex = startIndex + sourceText.length;
             const isOverlapping = note.mentions.some(
               (m) => startIndex < m.endIndex && endIndex > m.startIndex
             );
-            
+
             if (!isOverlapping) {
               const newMention = {
                 entityId: newEntity.id,
@@ -118,6 +199,14 @@ export default function NewEntityScreen() {
       style={styles.container}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
     >
+      <Stack.Screen
+        options={{
+          headerShown: true,
+          title: "New Lore",
+          headerStyle: { backgroundColor: "#0F172A" },
+          headerTintColor: "#F9FAFB",
+        }}
+      />
       <ScrollView contentContainerStyle={styles.inner}>
         {/* Image + Type row */}
         <View style={styles.topRow}>
@@ -132,7 +221,13 @@ export default function NewEntityScreen() {
                     styles.typeBtn,
                     type === t.value && { borderColor: t.color, backgroundColor: t.color + "15" },
                   ]}
-                  onPress={() => setType(t.value)}
+                  onPress={() => {
+                    setType(t.value);
+                    setName("");
+                    setSummary("");
+                    setContent("");
+                    setImageUri(null);
+                  }}
                 >
                   <FontAwesome5
                     name={t.icon}
@@ -148,43 +243,172 @@ export default function NewEntityScreen() {
                     {t.label}
                   </Text>
                 </TouchableOpacity>
-              ))}
+                ))}
+              </View>
             </View>
           </View>
-        </View>
 
-        <Text style={styles.label}>Name</Text>
+          <View style={[styles.labelRow, { marginTop: 16, marginBottom: 8 }]}>
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <Text style={[styles.label, { marginTop: 0 }]}>Concept / Summary</Text>
+              <View style={{ position: "relative", zIndex: 1000 }}>
+                <TouchableOpacity
+                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                  onPress={() => setShowConceptHelp(!showConceptHelp)}
+                  style={{ marginLeft: 8 }}
+                >
+                  <FontAwesome5 name="info-circle" size={14} color={showConceptHelp ? "#7C3AED" : "#6B7280"} />
+                </TouchableOpacity>
+
+                {showConceptHelp && (
+                  <View style={styles.tooltipContainer}>
+                    <Text style={styles.tooltipTitle}>AI Context</Text>
+                    <Text style={styles.tooltipText}>
+                      Type a few keywords here (like "grumpy dwarf" or "floating castle") to guide the AI name and details generation!
+                    </Text>
+                    <TouchableOpacity
+                      onPress={() => setShowConceptHelp(false)}
+                      style={styles.tooltipBtn}
+                    >
+                      <Text style={styles.tooltipBtnText}>Got it!</Text>
+                    </TouchableOpacity>
+                    <View style={styles.tooltipArrow} />
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
         <TextInput
           style={styles.input}
-          placeholder="e.g. Gundren Rockseeker"
-          placeholderTextColor="#6B7280"
-          value={name}
-          onChangeText={setName}
-        />
-
-        <Text style={styles.label}>Summary</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Brief description..."
+          placeholder={SUMMARY_PLACEHOLDERS[type]}
           placeholderTextColor="#6B7280"
           value={summary}
           onChangeText={setSummary}
         />
 
-        <Text style={styles.label}>Details</Text>
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Name</Text>
+          <TouchableOpacity
+            style={styles.aiLink}
+            onPress={handleGenerateName}
+            disabled={isGeneratingName}
+          >
+            {isGeneratingName ? (
+              <ActivityIndicator size="small" color="#A78BFA" />
+            ) : (
+              <>
+                <FontAwesome5 name="magic" size={10} color="#A78BFA" />
+                <Text style={styles.aiLinkText}>Generate</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </View>
         <TextInput
-          style={[styles.input, styles.inputMulti]}
-          placeholder="Full description, backstory, stats..."
+          style={styles.input}
+          placeholder={NAME_PLACEHOLDERS[type]}
+          placeholderTextColor="#6B7280"
+          value={name}
+          onChangeText={setName}
+        />
+
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Related Lore (Tags)</Text>
+          <FontAwesome5 name="link" size={10} color="#6B7280" style={{ marginTop: 24 }} />
+        </View>
+        <View style={styles.tagSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagList}>
+            {(allEntities || [])
+              .filter(e => e.id !== (initialName ? "fake-id-to-avoid-self" : "")) // avoid self if editing (though this is "new")
+              .map(entity => {
+                const isSelected = selectedEntityIds.includes(entity.id);
+                return (
+                  <TouchableOpacity
+                    key={entity.id}
+                    style={[
+                      styles.tagChip,
+                      isSelected && { backgroundColor: "#7C3AED", borderColor: "#7C3AED" }
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedEntityIds(selectedEntityIds.filter(id => id !== entity.id));
+                      } else {
+                        setSelectedEntityIds([...selectedEntityIds, entity.id]);
+                      }
+                    }}
+                  >
+                    <FontAwesome5 
+                      name={isSelected ? "check" : "plus"} 
+                      size={10} 
+                      color={isSelected ? "#FFFFFF" : "#6B7280"} 
+                    />
+                    <Text style={[styles.tagText, isSelected && { color: "#FFFFFF" }]}>
+                      {entity.name}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+          </ScrollView>
+          {(allEntities || []).length === 0 && (
+            <Text style={styles.emptyTags}>No other lore to tag yet.</Text>
+          )}
+        </View>
+
+        <View style={styles.labelRow}>
+          <Text style={styles.label}>Details</Text>
+          <View style={styles.aiActionRow}>
+            <TouchableOpacity
+              style={styles.aiLink}
+              onPress={handleOptimizeDetails}
+              disabled={isOptimizingDetails}
+            >
+              {isOptimizingDetails ? (
+                <ActivityIndicator size="small" color="#A78BFA" />
+              ) : (
+                <>
+                  <FontAwesome5 name="wand-magic-sparkles" size={10} color="#A78BFA" />
+                  <Text style={styles.aiLinkText}>Optimize</Text>
+                </>
+              )}
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.aiLink}
+              onPress={handleGenerateDetails}
+              disabled={isGeneratingDetails}
+            >
+              {isGeneratingDetails ? (
+                <ActivityIndicator size="small" color="#A78BFA" />
+              ) : (
+                <>
+                  <FontAwesome5 name="brain" size={10} color="#A78BFA" />
+                  <Text style={styles.aiLinkText}>Generate</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+        <TextInput
+          style={[styles.input, styles.inputMulti, { flex: 1, minHeight: 200 }]}
+          placeholder={DETAILS_PLACEHOLDERS[type]}
           placeholderTextColor="#6B7280"
           value={content}
           onChangeText={setContent}
           multiline
           textAlignVertical="top"
         />
+        <View style={{ height: 20 }} />
       </ScrollView>
 
       <View style={styles.footer}>
-        <TouchableOpacity style={styles.cancelBtn} onPress={() => router.back()}>
+        <TouchableOpacity
+          style={styles.cancelBtn}
+          onPress={() => {
+            if (router.canGoBack()) {
+              router.back();
+            } else {
+              router.replace("/");
+            }
+          }}
+        >
           <Text style={styles.cancelText}>Cancel</Text>
         </TouchableOpacity>
         <TouchableOpacity
@@ -193,7 +417,7 @@ export default function NewEntityScreen() {
           disabled={saving || createMutation.isPending}
         >
           <Text style={styles.saveText}>
-            {saving ? "Uploading..." : createMutation.isPending ? "Saving..." : "Create Entity"}
+            {saving ? "Uploading..." : createMutation.isPending ? "Saving..." : "Add Lore"}
           </Text>
         </TouchableOpacity>
       </View>
@@ -203,7 +427,7 @@ export default function NewEntityScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#0F172A" },
-  inner: { padding: 20 },
+  inner: { padding: 20, flexGrow: 1 },
   topRow: {
     flexDirection: "row",
     alignItems: "flex-start",
@@ -219,8 +443,82 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     textTransform: "uppercase",
     letterSpacing: 1,
+    marginTop: 24,
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  tooltipContainer: {
+    position: "absolute",
+    top: 30,
+    left: -140,
+    width: 280,
+    backgroundColor: "#FFFFFF",
+    borderRadius: 14,
+    padding: 18,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+    elevation: 12,
+    zIndex: 2000,
+  },
+  tooltipArrow: {
+    position: "absolute",
+    top: -6,
+    left: 140 - 6 + 8, // Center minus half arrow width plus icon offset
+    width: 12,
+    height: 12,
+    backgroundColor: "#FFFFFF",
+    transform: [{ rotate: "45deg" }],
+  },
+  tooltipTitle: {
+    fontSize: 17,
+    fontWeight: "800",
+    color: "#0F172A",
+    textAlign: "center",
     marginBottom: 8,
-    marginTop: 16,
+  },
+  tooltipText: {
+    fontSize: 13,
+    color: "#475569",
+    textAlign: "center",
+    lineHeight: 18,
+    marginBottom: 16,
+  },
+  tooltipBtn: {
+    backgroundColor: "#7C3AED",
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: "center",
+  },
+  tooltipBtnText: {
+    color: "#FFFFFF",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  aiActionRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  aiLink: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#1E293B",
+    borderWidth: 1,
+    borderColor: "#7C3AED40",
+  },
+  aiLinkText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#A78BFA",
+    textTransform: "uppercase",
   },
   typeRow: {
     flexDirection: "row",
@@ -275,4 +573,33 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   saveText: { color: "#FFFFFF", fontWeight: "700", fontSize: 16 },
+  tagSection: {
+    marginTop: 4,
+  },
+  tagList: {
+    flexDirection: "row",
+  },
+  tagChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1E293B",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 13,
+    color: "#E2E8F0",
+    fontWeight: "500",
+  },
+  emptyTags: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontStyle: "italic",
+    marginTop: 4,
+  },
 });

@@ -15,8 +15,12 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { useAuthStore } from "@/stores/authStore";
 import { useEntityDetail, useDeleteEntity } from "@/hooks/useEntities";
 import MentionText from "@/components/MentionText";
+import ProcessResultView from "@/components/ProcessResultView";
 import { API_BASE_URL } from "@/constants/Config";
-import type { EntityType } from "@/types";
+import * as loreAi from "@/services/loreAi";
+import { useEntities, useUpdateEntity } from "@/hooks/useEntities";
+import type { EntityType, ProcessSessionResult } from "@/types";
+import { useState } from "react";
 
 /** Convert a server-relative imageUrl to a full URL for display */
 function toFullImageUrl(imageUrl: string | null): string | null {
@@ -38,8 +42,82 @@ export default function EntityDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const activeCampaign = useAuthStore((s) => s.activeCampaign);
-  const { data: entity, isLoading } = useEntityDetail(id);
+  const { data: entity, isLoading, refetch } = useEntityDetail(id);
+  const { data: allEntities } = useEntities(activeCampaign?.id || "");
   const deleteMutation = useDeleteEntity(activeCampaign?.id || "");
+  const updateMutation = useUpdateEntity(activeCampaign?.id || "");
+
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<ProcessSessionResult | null>(null);
+  const [showAnalysisModal, setShowAnalysisModal] = useState(false);
+
+  const handleAnalyze = async () => {
+    if (!entity?.content) return;
+    setIsAnalyzing(true);
+    try {
+      const result = await loreAi.analyzeContent(activeCampaign?.id || "", entity.name, entity.content);
+      
+      // Filter out the current entity from detected lore to avoid linking to itself
+      const filteredEntities = result.extractedEntities.filter(
+        (ent: any) => ent.name.toLowerCase() !== entity.name.toLowerCase()
+      );
+
+      const mappedResult: ProcessSessionResult = {
+        id: "temp",
+        noteId: "temp",
+        summary: result.summary,
+        extractedEntities: filteredEntities,
+        questUpdates: result.questUpdates,
+        createdAt: new Date().toISOString(),
+      };
+      setAnalysisResult(mappedResult);
+      setShowAnalysisModal(true);
+    } catch (err: any) {
+      Alert.alert("Analysis Failed", "Could not analyze the content at this time.");
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  const handleAddLink = async (targetEntityId: string, text: string) => {
+    if (!entity) return;
+    try {
+      const lowerContent = entity.content!.toLowerCase();
+      const lowerText = text.toLowerCase();
+      const startIndex = lowerContent.indexOf(lowerText);
+      
+      if (startIndex !== -1) {
+        const endIndex = startIndex + text.length;
+        const newMention = {
+          targetEntityId,
+          startIndex,
+          endIndex,
+          displayText: entity.content!.substring(startIndex, endIndex),
+        };
+        
+        await updateMutation.mutateAsync({
+          id: entity.id,
+          data: {
+            mentions: [...(entity.entityMentions || []), newMention],
+          },
+        });
+        refetch();
+      }
+    } catch (err: any) {
+      Alert.alert("Link Failed", err.message);
+    }
+  };
+
+  const handleCreateQuest = (title: string, details: string) => {
+    router.push({
+      pathname: "/entity/new",
+      params: { 
+        name: title, 
+        type: "QUEST" as any, 
+        sourceText: details 
+      }
+    });
+  };
 
   const handleDelete = () => {
     Alert.alert("Delete Entity", `Delete "${entity?.name}"? This cannot be undone.`, [
@@ -81,6 +159,7 @@ export default function EntityDetailScreen() {
     <ScrollView style={styles.container} contentContainerStyle={styles.inner}>
       <Stack.Screen
         options={{
+          headerShown: true,
           title: entity.name,
           headerStyle: { backgroundColor: "#0F172A" },
           headerTintColor: "#F9FAFB",
@@ -123,15 +202,55 @@ export default function EntityDetailScreen() {
         </View>
       ) : null}
 
-      {/* Details — with tappable @mentions */}
       {entity.content ? (
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>Details</Text>
+          <View style={styles.labelRow}>
+            <Text style={styles.sectionLabel}>Details</Text>
+            <TouchableOpacity 
+              style={styles.analyzeBtn} 
+              onPress={handleAnalyze}
+              disabled={isAnalyzing}
+            >
+              {isAnalyzing ? (
+                <ActivityIndicator size="small" color="#A78BFA" />
+              ) : (
+                <>
+                  <FontAwesome5 name="brain" size={10} color="#A78BFA" />
+                  <Text style={styles.analyzeBtnText}>Analyze</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
           <View style={styles.contentBox}>
             <MentionText content={entity.content} mentions={mentionsForText} />
           </View>
         </View>
       ) : null}
+
+      {/* Analysis Results Overlay */}
+      {showAnalysisModal && analysisResult && (
+        <View style={styles.analysisOverlay}>
+          <View style={styles.analysisHeader}>
+            <Text style={styles.analysisTitle}>Analysis Results</Text>
+            <TouchableOpacity onPress={() => setShowAnalysisModal(false)}>
+              <FontAwesome5 name="times" size={18} color="#9CA3AF" />
+            </TouchableOpacity>
+          </View>
+          <ProcessResultView 
+            result={analysisResult} 
+            onAddLink={handleAddLink}
+            onCreateEntity={(name, type) => {
+              router.push({
+                pathname: "/entity/new",
+                params: { name, type }
+              });
+            }}
+            onCreateQuest={handleCreateQuest}
+            existingEntities={allEntities || []}
+            existingMentionEntityIds={(entity.entityMentions || []).map(m => m.targetEntityId)}
+          />
+        </View>
+      )}
 
       {/* ─── MENTIONED IN: NOTES ──────────────────────────── */}
       {entity.mentionedInNotes && entity.mentionedInNotes.length > 0 && (
@@ -381,5 +500,52 @@ const styles = StyleSheet.create({
   metaText: {
     fontSize: 12,
     color: "#4B5563",
+  },
+  labelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  analyzeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    backgroundColor: "#1E293B",
+    borderWidth: 1,
+    borderColor: "#7C3AED40",
+  },
+  analyzeBtnText: {
+    fontSize: 11,
+    fontWeight: "700",
+    color: "#A78BFA",
+    textTransform: "uppercase",
+  },
+  analysisOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#0F172A",
+    zIndex: 1000,
+    paddingTop: 60, // Account for header
+  },
+  analysisHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: "#334155",
+  },
+  analysisTitle: {
+    fontSize: 18,
+    fontWeight: "800",
+    color: "#F9FAFB",
   },
 });

@@ -250,6 +250,7 @@ export default function NoteDetailScreen() {
     >
       <Stack.Screen
         options={{
+          headerShown: true,
           title: editing ? "Edit Note" : note.title,
           headerStyle: { backgroundColor: "#0F172A" },
           headerTintColor: "#F9FAFB",

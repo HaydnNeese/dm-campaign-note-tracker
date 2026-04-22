@@ -9,6 +9,7 @@ import entityRoutes from "./routes/entities";
 import noteRoutes from "./routes/notes";
 import uploadRoutes from "./routes/uploads";
 import sessionAiRoutes from "./routes/sessionAi";
+import loreAiRoutes from "./routes/loreAi";
 
 const app = express();
 
@@ -31,6 +32,7 @@ app.use("/campaigns", entityRoutes);   // nested: /campaigns/:campaignId/entitie
 app.use("/", noteRoutes);              // mixed: /campaigns/:campaignId/notes + /notes/:id
 app.use("/uploads", uploadRoutes);     // POST /uploads/image
 app.use("/notes", sessionAiRoutes);    // AI: /notes/:id/process-session, /notes/:id/generate-recap
+app.use("/ai/lore", loreAiRoutes);     // Creative: /ai/lore/name, /ai/lore/details, /ai/lore/optimize
 
 // ─── Error handler (must be last) ────────────────────────────
 app.use(errorHandler);

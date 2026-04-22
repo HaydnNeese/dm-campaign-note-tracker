@@ -2,6 +2,7 @@ import { Tabs } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { TouchableOpacity } from "react-native";
 import { useRouter } from "expo-router";
+import CampaignSelector from "@/components/CampaignSelector";
 
 export default function CampaignTabLayout() {
   const router = useRouter();
@@ -29,6 +30,7 @@ export default function CampaignTabLayout() {
         headerTitleStyle: {
           fontWeight: "700",
         },
+        headerTitle: () => <CampaignSelector />,
         headerLeft: () => (
           <TouchableOpacity onPress={() => router.replace("/(app)")} style={{ marginLeft: 16 }}>
             <FontAwesome5 name="arrow-left" size={20} color="#F9FAFB" />
