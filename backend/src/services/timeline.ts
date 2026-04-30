@@ -5,9 +5,10 @@ import prisma from "../lib/prisma";
 
 // ─── Types ──────────────────────────────────────────────────
 
-export interface TimelineNpcAppearance {
+export interface TimelineLoreMention {
   entityId: string;
   name: string;
+  type: string;
 }
 
 export interface CampaignTimelineItem {
@@ -16,7 +17,7 @@ export interface CampaignTimelineItem {
   createdAt: string; // ISO date string
   summary: string | null;
   majorEvents: string[];
-  npcAppearances: TimelineNpcAppearance[];
+  loreMentions: TimelineLoreMention[];
 }
 
 // ─── Major event extraction (deterministic fallback) ────────
@@ -135,18 +136,25 @@ export async function getCampaignTimeline(
       majorEvents = extractMajorEvents(note.content);
     }
 
-    // ── NPC appearances: filter mentions to NPC-type entities, deduplicate
+    // ── Lore mentions: deduplicate and include all types
     const seen = new Set<string>();
-    const npcAppearances: TimelineNpcAppearance[] = [];
+    const loreMentions: TimelineLoreMention[] = [];
     for (const mention of note.mentions) {
-      if (mention.entity.type === "NPC" && !seen.has(mention.entity.id)) {
+      if (!seen.has(mention.entity.id)) {
         seen.add(mention.entity.id);
-        npcAppearances.push({
+        loreMentions.push({
           entityId: mention.entity.id,
           name: mention.entity.name,
+          type: mention.entity.type,
         });
       }
     }
+    // Sort loreMentions: NPCs first, then alphabetical? Or just as encountered
+    loreMentions.sort((a, b) => {
+      if (a.type === "NPC" && b.type !== "NPC") return -1;
+      if (a.type !== "NPC" && b.type === "NPC") return 1;
+      return a.name.localeCompare(b.name);
+    });
 
     return {
       noteId: note.id,
@@ -154,7 +162,7 @@ export async function getCampaignTimeline(
       createdAt: note.createdAt.toISOString(),
       summary,
       majorEvents,
-      npcAppearances,
+      loreMentions,
     };
   });
 }

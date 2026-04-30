@@ -18,16 +18,16 @@ import { API_BASE_URL } from "@/constants/Config";
 import type { Entity, EntityType } from "@/types";
 
 // Icon + color per entity type
-const TYPE_META: Record<string, { icon: string; color: string }> = {
-  NPC: { icon: "user-friends", color: "#F59E0B" },
-  LOCATION: { icon: "map-marker-alt", color: "#10B981" },
-  ITEM: { icon: "gem", color: "#3B82F6" },
-  QUEST: { icon: "exclamation-circle", color: "#EF4444" },
-  FACTION: { icon: "flag", color: "#8B5CF6" },
-  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899" },
+const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  NPC: { icon: "user-friends", color: "#F59E0B", label: "NPC" },
+  LOCATION: { icon: "map-marker-alt", color: "#10B981", label: "Location" },
+  ITEM: { icon: "gem", color: "#3B82F6", label: "Item" },
+  QUEST: { icon: "exclamation-circle", color: "#EF4444", label: "Quest" },
+  FACTION: { icon: "flag", color: "#8B5CF6", label: "Faction" },
+  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899", label: "Event" },
 };
 
-const FILTER_TABS: (EntityType | "ALL")[] = ["ALL", "NPC", "LOCATION", "ITEM", "QUEST"];
+const FILTER_TABS: (EntityType | "ALL")[] = ["ALL", "NPC", "LOCATION", "ITEM", "QUEST", "FACTION", "KEY_EVENT"];
 
 /** Convert a server-relative imageUrl to a full URL for display */
 function toFullImageUrl(imageUrl: string | null): string | null {
@@ -90,7 +90,7 @@ export default function EntitiesScreen() {
         )}
         <View style={styles.cardBody}>
           <Text style={styles.cardTitle}>{item.name}</Text>
-          <Text style={styles.cardType}>{item.type}</Text>
+          <Text style={styles.cardType}>{meta.label}</Text>
           {item.summary ? (
             <Text style={styles.cardSummary} numberOfLines={1}>
               {item.summary}
@@ -117,7 +117,7 @@ export default function EntitiesScreen() {
                 filter === tab && styles.filterTextActive,
               ]}
             >
-              {tab}
+              {tab === "ALL" ? "ALL" : TYPE_META[tab].label}
             </Text>
           </TouchableOpacity>
         ))}

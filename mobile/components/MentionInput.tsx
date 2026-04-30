@@ -17,13 +17,13 @@ import {
 import { FontAwesome5 } from "@expo/vector-icons";
 import type { Entity, EntityType, MentionInput as MentionData } from "@/types";
 
-const TYPE_META: Record<string, { icon: string; color: string }> = {
-  NPC: { icon: "user-friends", color: "#F59E0B" },
-  LOCATION: { icon: "map-marker-alt", color: "#10B981" },
-  ITEM: { icon: "gem", color: "#3B82F6" },
-  QUEST: { icon: "exclamation-circle", color: "#EF4444" },
-  FACTION: { icon: "flag", color: "#8B5CF6" },
-  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899" },
+const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  NPC: { icon: "user-friends", color: "#F59E0B", label: "NPC" },
+  LOCATION: { icon: "map-marker-alt", color: "#10B981", label: "Location" },
+  ITEM: { icon: "gem", color: "#3B82F6", label: "Item" },
+  QUEST: { icon: "exclamation-circle", color: "#EF4444", label: "Quest" },
+  FACTION: { icon: "flag", color: "#8B5CF6", label: "Faction" },
+  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899", label: "Event" },
 };
 
 interface Props {
@@ -204,7 +204,7 @@ export default function MentionInputComponent({
                   </View>
                   <View style={styles.dropdownText}>
                     <Text style={styles.dropdownName}>{item.name}</Text>
-                    <Text style={styles.dropdownType}>{item.type}</Text>
+                    <Text style={styles.dropdownType}>{meta.label}</Text>
                   </View>
                 </TouchableOpacity>
               );

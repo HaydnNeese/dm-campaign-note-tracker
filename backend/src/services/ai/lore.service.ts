@@ -41,6 +41,10 @@ export async function generateLoreDetails(
     typeSpecificInstructions = "Include magical properties, statistics, or mechanical benefits.";
   } else if (type === "QUEST") {
     typeSpecificInstructions = "Include potential rewards such as gold, items, or narrative boons.";
+  } else if (type === "FACTION") {
+    typeSpecificInstructions = "Include organizational structure, key members, goals, and alignment.";
+  } else if (type === "KEY_EVENT") {
+    typeSpecificInstructions = "Include date/timeframe, participants, outcome, and historical impact.";
   }
 
   let taggedContext = "";

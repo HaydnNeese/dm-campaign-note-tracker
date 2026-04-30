@@ -12,7 +12,17 @@ import {
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { FontAwesome5 } from "@expo/vector-icons";
 import { useTimeline } from "@/hooks/useTimeline";
-import type { CampaignTimelineItem, TimelineNpcAppearance } from "@/types";
+import type { CampaignTimelineItem, TimelineLoreMention } from "@/types";
+
+// Icon + color per entity type
+const TYPE_META: Record<string, { icon: string; color: string }> = {
+  NPC: { icon: "user-friends", color: "#F59E0B" },
+  LOCATION: { icon: "map-marker-alt", color: "#10B981" },
+  ITEM: { icon: "gem", color: "#3B82F6" },
+  QUEST: { icon: "exclamation-circle", color: "#EF4444" },
+  FACTION: { icon: "flag", color: "#8B5CF6" },
+  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899" },
+};
 
 // ─── Helpers ────────────────────────────────────────────────
 
@@ -41,19 +51,22 @@ function relativeDate(iso: string): string {
   return `${Math.floor(diffDays / 30)}mo ago`;
 }
 
-// ─── NPC Chip ───────────────────────────────────────────────
-
-function NpcChip({
-  npc,
+function LoreChip({
+  mention,
   onPress,
 }: {
-  npc: TimelineNpcAppearance;
+  mention: TimelineLoreMention;
   onPress: () => void;
 }) {
+  const meta = TYPE_META[mention.type] || { icon: "link", color: "#A78BFA" };
   return (
-    <TouchableOpacity style={styles.npcChip} onPress={onPress} activeOpacity={0.7}>
-      <FontAwesome5 name="user" size={10} color="#A78BFA" />
-      <Text style={styles.npcChipText}>{npc.name}</Text>
+    <TouchableOpacity
+      style={[styles.loreChip, { backgroundColor: meta.color + "15", borderColor: meta.color + "40" }]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <FontAwesome5 name={meta.icon} size={10} color={meta.color} />
+      <Text style={[styles.loreChipText, { color: meta.color }]}>{mention.name}</Text>
     </TouchableOpacity>
   );
 }
@@ -63,11 +76,11 @@ function NpcChip({
 function TimelineCard({
   item,
   onPressNote,
-  onPressNpc,
+  onPressMention,
 }: {
   item: CampaignTimelineItem;
   onPressNote: (noteId: string) => void;
-  onPressNpc: (entityId: string) => void;
+  onPressMention: (entityId: string) => void;
 }) {
   return (
     <View style={styles.cardRow}>
@@ -122,29 +135,29 @@ function TimelineCard({
           </View>
         )}
 
-        {/* NPC Appearances */}
-        {item.npcAppearances.length > 0 ? (
-          <View style={styles.npcSection}>
+        {/* Lore Mentions */}
+        {item.loreMentions.length > 0 ? (
+          <View style={styles.loreSection}>
             <View style={styles.sectionHeader}>
-              <FontAwesome5 name="users" size={11} color="#34D399" />
+              <FontAwesome5 name="link" size={11} color="#A78BFA" />
               <Text style={styles.sectionLabel}>
-                NPCs ({item.npcAppearances.length})
+                Lore Mentions ({item.loreMentions.length})
               </Text>
             </View>
-            <View style={styles.npcList}>
-              {item.npcAppearances.map((npc) => (
-                <NpcChip
-                  key={npc.entityId}
-                  npc={npc}
-                  onPress={() => onPressNpc(npc.entityId)}
+            <View style={styles.loreList}>
+              {item.loreMentions.map((mention) => (
+                <LoreChip
+                  key={mention.entityId}
+                  mention={mention}
+                  onPress={() => onPressMention(mention.entityId)}
                 />
               ))}
             </View>
           </View>
         ) : (
-          <View style={styles.noNpcRow}>
-            <FontAwesome5 name="user-slash" size={10} color="#4B5563" />
-            <Text style={styles.noNpcText}>No NPCs mentioned</Text>
+          <View style={styles.noLoreRow}>
+            <FontAwesome5 name="link" size={10} color="#4B5563" />
+            <Text style={styles.noLoreText}>No lore mentioned</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -163,7 +176,7 @@ export default function TimelineScreen() {
     router.push(`/note/${noteId}` as any);
   };
 
-  const handlePressNpc = (entityId: string) => {
+  const handlePressMention = (entityId: string) => {
     router.push(`/entity/${entityId}` as any);
   };
 
@@ -193,7 +206,7 @@ export default function TimelineScreen() {
             <TimelineCard
               item={item}
               onPressNote={handlePressNote}
-              onPressNpc={handlePressNpc}
+              onPressMention={handlePressMention}
             />
           )}
           contentContainerStyle={styles.list}
@@ -352,41 +365,38 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // ── NPC section
-  npcSection: {
+  // ── Lore section
+  loreSection: {
     marginTop: 2,
   },
-  npcList: {
+  loreList: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     marginTop: 2,
   },
-  npcChip: {
+  loreChip: {
     flexDirection: "row",
     alignItems: "center",
     gap: 5,
-    backgroundColor: "#312E81",
     paddingHorizontal: 10,
     paddingVertical: 5,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: "#4338CA",
   },
-  npcChipText: {
+  loreChipText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#C4B5FD",
   },
 
-  // ── No NPC row
-  noNpcRow: {
+  // ── No Lore row
+  noLoreRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 4,
   },
-  noNpcText: {
+  noLoreText: {
     fontSize: 12,
     color: "#4B5563",
     fontStyle: "italic",

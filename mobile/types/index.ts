@@ -153,9 +153,10 @@ export interface UpdateNoteRequest {
 
 // ─── Campaign Timeline types ────────────────────────────────
 
-export interface TimelineNpcAppearance {
+export interface TimelineLoreMention {
   entityId: string;
   name: string;
+  type: EntityType;
 }
 
 export interface CampaignTimelineItem {
@@ -164,7 +165,7 @@ export interface CampaignTimelineItem {
   createdAt: string;
   summary: string | null;
   majorEvents: string[];
-  npcAppearances: TimelineNpcAppearance[];
+  loreMentions: TimelineLoreMention[];
 }
 
 // ─── AI Feature types ───────────────────────────────────────

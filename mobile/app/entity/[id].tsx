@@ -163,8 +163,13 @@ export default function EntityDetailScreen() {
           title: entity.name,
           headerStyle: { backgroundColor: "#0F172A" },
           headerTintColor: "#F9FAFB",
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
+              <FontAwesome5 name="arrow-left" size={18} color="#F9FAFB" />
+            </TouchableOpacity>
+          ),
           headerRight: () => (
-            <View style={{ flexDirection: "row", gap: 16 }}>
+            <View style={{ flexDirection: "row", gap: 16, paddingRight: 16 }}>
               <TouchableOpacity
                 onPress={() => router.push(`/entity/edit/${entity.id}` as any)}
               >

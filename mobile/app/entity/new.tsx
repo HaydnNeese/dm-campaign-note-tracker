@@ -20,7 +20,6 @@ import { useEntities, useCreateEntity } from "@/hooks/useEntities";
 import { useNotes, useUpdateNote } from "@/hooks/useNotes";
 import { uploadImage } from "@/services/uploads";
 import EntityImagePicker from "@/components/EntityImagePicker";
-import { API_BASE_URL } from "@/constants/Config";
 import * as loreAi from "@/services/loreAi";
 import type { EntityType } from "@/types";
 
@@ -29,6 +28,8 @@ const ENTITY_TYPES: { value: EntityType; label: string; icon: string; color: str
   { value: "LOCATION", label: "Location", icon: "map-marker-alt", color: "#10B981" },
   { value: "ITEM", label: "Item", icon: "gem", color: "#3B82F6" },
   { value: "QUEST", label: "Quest", icon: "exclamation-circle", color: "#EF4444" },
+  { value: "FACTION", label: "Faction", icon: "flag", color: "#8B5CF6" },
+  { value: "KEY_EVENT", label: "Event", icon: "calendar-alt", color: "#EC4899" },
 ];
 
 const SUMMARY_PLACEHOLDERS: Record<EntityType, string> = {
@@ -75,6 +76,7 @@ export default function NewEntityScreen() {
   const [content, setContent] = useState("");
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [selectedEntityIds, setSelectedEntityIds] = useState<string[]>([]);
+  const [tagFilter, setTagFilter] = useState<EntityType | "ALL">("ALL");
   const [saving, setSaving] = useState(false);
   const [showConceptHelp, setShowConceptHelp] = useState(false);
 
@@ -205,6 +207,11 @@ export default function NewEntityScreen() {
           title: "New Lore",
           headerStyle: { backgroundColor: "#0F172A" },
           headerTintColor: "#F9FAFB",
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 16 }}>
+              <FontAwesome5 name="arrow-left" size={18} color="#F9FAFB" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <ScrollView contentContainerStyle={styles.inner}>
@@ -243,41 +250,41 @@ export default function NewEntityScreen() {
                     {t.label}
                   </Text>
                 </TouchableOpacity>
-                ))}
-              </View>
+              ))}
             </View>
           </View>
+        </View>
 
-          <View style={[styles.labelRow, { marginTop: 16, marginBottom: 8 }]}>
-            <View style={{ flexDirection: "row", alignItems: "center" }}>
-              <Text style={[styles.label, { marginTop: 0 }]}>Concept / Summary</Text>
-              <View style={{ position: "relative", zIndex: 1000 }}>
-                <TouchableOpacity
-                  hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-                  onPress={() => setShowConceptHelp(!showConceptHelp)}
-                  style={{ marginLeft: 8 }}
-                >
-                  <FontAwesome5 name="info-circle" size={14} color={showConceptHelp ? "#7C3AED" : "#6B7280"} />
-                </TouchableOpacity>
+        <View style={[styles.labelRow, { marginTop: 16, marginBottom: 8 }]}>
+          <View style={{ flexDirection: "row", alignItems: "center" }}>
+            <Text style={[styles.label, { marginTop: 0 }]}>Concept / Summary</Text>
+            <View style={{ position: "relative", zIndex: 1000 }}>
+              <TouchableOpacity
+                hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+                onPress={() => setShowConceptHelp(!showConceptHelp)}
+                style={{ marginLeft: 8 }}
+              >
+                <FontAwesome5 name="info-circle" size={14} color={showConceptHelp ? "#7C3AED" : "#6B7280"} />
+              </TouchableOpacity>
 
-                {showConceptHelp && (
-                  <View style={styles.tooltipContainer}>
-                    <Text style={styles.tooltipTitle}>AI Context</Text>
-                    <Text style={styles.tooltipText}>
-                      Type a few keywords here (like "grumpy dwarf" or "floating castle") to guide the AI name and details generation!
-                    </Text>
-                    <TouchableOpacity
-                      onPress={() => setShowConceptHelp(false)}
-                      style={styles.tooltipBtn}
-                    >
-                      <Text style={styles.tooltipBtnText}>Got it!</Text>
-                    </TouchableOpacity>
-                    <View style={styles.tooltipArrow} />
-                  </View>
-                )}
-              </View>
+              {showConceptHelp && (
+                <View style={styles.tooltipContainer}>
+                  <Text style={styles.tooltipTitle}>AI Context</Text>
+                  <Text style={styles.tooltipText}>
+                    Type a few keywords here (like "grumpy dwarf" or "floating castle") to guide the AI name and details generation!
+                  </Text>
+                  <TouchableOpacity
+                    onPress={() => setShowConceptHelp(false)}
+                    style={styles.tooltipBtn}
+                  >
+                    <Text style={styles.tooltipBtnText}>Got it!</Text>
+                  </TouchableOpacity>
+                  <View style={styles.tooltipArrow} />
+                </View>
+              )}
             </View>
           </View>
+        </View>
         <TextInput
           style={styles.input}
           placeholder={SUMMARY_PLACEHOLDERS[type]}
@@ -316,8 +323,31 @@ export default function NewEntityScreen() {
           <FontAwesome5 name="link" size={10} color="#6B7280" style={{ marginTop: 24 }} />
         </View>
         <View style={styles.tagSection}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterList}>
+            <TouchableOpacity
+              style={[styles.filterChip, tagFilter === "ALL" && styles.filterChipActive]}
+              onPress={() => setTagFilter("ALL")}
+            >
+              <Text style={[styles.filterChipText, tagFilter === "ALL" && styles.filterChipTextActive]}>All</Text>
+            </TouchableOpacity>
+            {ENTITY_TYPES.map((t) => (
+              <TouchableOpacity
+                key={t.value}
+                style={[
+                  styles.filterChip,
+                  tagFilter === t.value && { backgroundColor: t.color + "20", borderColor: t.color }
+                ]}
+                onPress={() => setTagFilter(t.value)}
+              >
+                <FontAwesome5 name={t.icon} size={10} color={tagFilter === t.value ? t.color : "#6B7280"} />
+                <Text style={[styles.filterChipText, tagFilter === t.value && { color: t.color }]}>{t.label}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tagList}>
             {(allEntities || [])
+              .filter(e => tagFilter === "ALL" || e.type === tagFilter)
               .filter(e => e.id !== (initialName ? "fake-id-to-avoid-self" : "")) // avoid self if editing (though this is "new")
               .map(entity => {
                 const isSelected = selectedEntityIds.includes(entity.id);
@@ -336,10 +366,10 @@ export default function NewEntityScreen() {
                       }
                     }}
                   >
-                    <FontAwesome5 
-                      name={isSelected ? "check" : "plus"} 
-                      size={10} 
-                      color={isSelected ? "#FFFFFF" : "#6B7280"} 
+                    <FontAwesome5
+                      name={isSelected ? "check" : "plus"}
+                      size={10}
+                      color={isSelected ? "#FFFFFF" : "#6B7280"}
                     />
                     <Text style={[styles.tagText, isSelected && { color: "#FFFFFF" }]}>
                       {entity.name}
@@ -601,5 +631,33 @@ const styles = StyleSheet.create({
     color: "#6B7280",
     fontStyle: "italic",
     marginTop: 4,
+  },
+  filterList: {
+    flexDirection: "row",
+    marginBottom: 12,
+  },
+  filterChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#1E293B",
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: "#334155",
+    gap: 6,
+  },
+  filterChipActive: {
+    backgroundColor: "#7C3AED20",
+    borderColor: "#7C3AED",
+  },
+  filterChipText: {
+    fontSize: 12,
+    color: "#6B7280",
+    fontWeight: "600",
+  },
+  filterChipTextActive: {
+    color: "#A78BFA",
   },
 });

@@ -41,8 +41,15 @@ export default function CampaignTabLayout() {
       <Tabs.Screen
         name="notes"
         options={{
-          title: "Notes",
+          title: "Session Notes",
           tabBarIcon: ({ color, size }) => <FontAwesome5 name="scroll" size={size - 4} color={color} />,
+        }}
+      />
+      <Tabs.Screen
+        name="timeline"
+        options={{
+          title: "Timeline",
+          tabBarIcon: ({ color, size }) => <FontAwesome5 name="hourglass-half" size={size - 4} color={color} />,
         }}
       />
       <Tabs.Screen

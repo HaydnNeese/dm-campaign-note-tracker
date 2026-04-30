@@ -18,6 +18,7 @@ import { useCreateNote } from "@/hooks/useNotes";
 import { useEntities } from "@/hooks/useEntities";
 import MentionInput from "@/components/MentionInput";
 import type { MentionInput as MentionData } from "@/types";
+import { FontAwesome5 } from "@expo/vector-icons";
 
 export default function NewNoteScreen() {
   const router = useRouter();
@@ -58,9 +59,14 @@ export default function NewNoteScreen() {
       <Stack.Screen
         options={{
           headerShown: true,
-          title: "New Note",
+          title: "New Session Note",
           headerStyle: { backgroundColor: "#0F172A" },
           headerTintColor: "#F9FAFB",
+          headerLeft: () => (
+            <TouchableOpacity onPress={() => router.back()} style={{ marginLeft: 20, paddingRight: 20 }}>
+              <FontAwesome5 name="arrow-left" size={16} color="#F9FAFB" />
+            </TouchableOpacity>
+          ),
         }}
       />
       <ScrollView
@@ -81,6 +87,7 @@ export default function NewNoteScreen() {
 
         {/* Smart mention input */}
         <MentionInput
+          style={styles.mentionInput}
           value={content}
           onChangeText={setContent}
           entities={entities || []}
@@ -116,7 +123,12 @@ const styles = StyleSheet.create({
     fontWeight: "800",
     color: "#F9FAFB",
     marginBottom: 8,
-    padding: 0,
+    paddingVertical: 8,
+    paddingLeft: 8
+  },
+  mentionInput: {
+    marginHorizontal: 8,
+    padding: 8
   },
   hint: {
     fontSize: 12,

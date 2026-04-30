@@ -7,13 +7,13 @@ import { FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import type { ProcessSessionResult, EntityType, QuestUpdate } from "@/types";
 
-const TYPE_META: Record<string, { icon: string; color: string }> = {
-  NPC: { icon: "user-friends", color: "#F59E0B" },
-  LOCATION: { icon: "map-marker-alt", color: "#10B981" },
-  ITEM: { icon: "gem", color: "#3B82F6" },
-  QUEST: { icon: "exclamation-circle", color: "#EF4444" },
-  FACTION: { icon: "flag", color: "#8B5CF6" },
-  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899" },
+const TYPE_META: Record<string, { icon: string; color: string; label: string }> = {
+  NPC: { icon: "user-friends", color: "#F59E0B", label: "NPC" },
+  LOCATION: { icon: "map-marker-alt", color: "#10B981", label: "Location" },
+  ITEM: { icon: "gem", color: "#3B82F6", label: "Item" },
+  QUEST: { icon: "exclamation-circle", color: "#EF4444", label: "Quest" },
+  FACTION: { icon: "flag", color: "#8B5CF6", label: "Faction" },
+  KEY_EVENT: { icon: "calendar-alt", color: "#EC4899", label: "Event" },
 };
 
 const STATUS_META: Record<string, { label: string; color: string; icon: string }> = {
@@ -120,7 +120,7 @@ export default function ProcessResultView({
                 <View style={styles.itemBody}>
                   <Text style={styles.itemName}>{ent.name}</Text>
                   <Text style={styles.itemSub}>
-                    {ent.entityType}
+                    {meta.label}
                     {ent.isNewSuggestion ? " — New Suggestion" : " — Existing"}
                   </Text>
                 </View>
